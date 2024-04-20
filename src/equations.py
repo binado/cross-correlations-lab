@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.special import erfc
 
-from .utils import lognormal_arg, dc2_over_hz, critical_surface_density, normalize
+from .utils import lognormal_arg, critical_surface_density, normalize
 
-def si(z, zmin, zmax, cosmology, sigma):
+def sfunc(z, zmin, zmax, cosmology, sigma):
     """
     See Eq. 6.
     """
@@ -12,7 +12,7 @@ def si(z, zmin, zmax, cosmology, sigma):
     d = cosmology.luminosity_distance(z).value
     return 0.5 * (erfc(lognormal_arg(dmin, d, sigma)) - erfc(lognormal_arg(dmax, d, sigma)))
 
-def ti(z, zmin, zmax, cosmology, sigma):
+def tfunc(z, zmin, zmax, cosmology, sigma):
     """
     See Eq. 9
     """
@@ -24,28 +24,28 @@ def ti(z, zmin, zmax, cosmology, sigma):
     norm = sigma * np.sqrt(2 * np.pi)
     return (np.exp(-xmax ** 2) - np.exp(-xmin ** 2)) / norm
 
-def ws(z, cosmology, ngw, zmin, zmax, sigma, norm=False):
+def ws(z, ngw, si, dc2_over_hz, norm=False):
     """
     See Eq. 8
     Normalization is equivalent to dividing by \bar{n} in the paper
     """
-    res = ngw * dc2_over_hz(z, cosmology) * si(z, zmin, zmax, cosmology, sigma)
+    res = ngw * dc2_over_hz * si
     return normalize(res, z) if norm else res
 
-def wt(z, cosmology, ngw, zmin, zmax, sigma, norm=False):
+def wt(z, ngw, ti, dc2_over_hz, norm=False):
     """
     See Eq. 8
     Normalization is equivalent to dividing by \bar{n} in the paper
     """
-    res = ngw * dc2_over_hz(z, cosmology) * ti(z, zmin, zmax, cosmology, sigma)
+    res = ngw * dc2_over_hz * ti
     return normalize(res, z) if norm else res
 
-def wg(z, cosmology, ng, zmin, zmax, norm=False):
+def wg(z, ng, dc2_over_hz, zmin, zmax, norm=False):
     """
     See Eq. 15
     """
     cut = (z >= zmin) & (z <= zmax)
-    res = ng * dc2_over_hz(z, cosmology) * cut
+    res = ng * dc2_over_hz * cut
     return normalize(res, z) if norm else res
 
 

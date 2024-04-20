@@ -15,7 +15,7 @@ def dc2_over_hz(z, cosmology):
     """
     Return \frac{\chi^2(z)}{H(z)} in Mpc^3 s / km
     """
-    dc = cosmology.comomving_distance(z).value
+    dc = cosmology.comoving_distance(z).value
     hz = cosmology.H(z).value
     return dc ** 2 / hz
 
@@ -23,9 +23,10 @@ def angular_diameter_distance12(z1, z2, cosmology):
     """
     See https://arxiv.org/pdf/astro-ph/9905116.pdf
     """
-    dm1 = cosmology.comoving_distance(z1).value
-    dm2 = cosmology.comoving_distance(z2).value
-    return (dm2 - dm1) / (1. + z2)
+    # dm1 = cosmology.comoving_distance(z1).value
+    # dm2 = cosmology.comoving_distance(z2).value
+    # return (dm2 - dm1) / (1. + z2)
+    return cosmology.angular_diameter_distance_z1z2(z1, z2).value
 
 
 def critical_surface_density(zlens, zsource, cosmology):
