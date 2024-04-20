@@ -1,37 +1,49 @@
 import math
+
+import numpy as np
 import camb
 
-def run_solver(**kwargs):
+def camb_params(zmin, zmax, nz=256, kmax=1.2):
     # See Table 2 of https://arxiv.org/pdf/1807.06209.pdf
     cosmo_params = {
         'H0': 67.36,
         'ombh2': 0.02237,
         'omch2': 0.12,
         'tau': 0.0544,
-        'As': 1e-10 * math.exp(3.044),
-        'ns': 0.9649,
         'mnu': 0.06,
         'omk': 0.0
     }
-    camb_params = {
-        'WantTransfer': True,
-        'halofit_version': 'mead'
+    init_params = {
+        'As': 1e-10 * math.exp(3.044),
+        'ns': 0.9649
     }
+    cp = camb.model.CAMBparams()
+    cp.set_cosmology(**cosmo_params)
+    cp.WantTransfer = True
+    cp.Transfer.PK_num_redshifts = nz
+    cp.set_matter_power(redshifts=np.linspace(zmin, zmax, nz), kmax=kmax, nonlinear=True)
+    cp.InitPower.set_params(**init_params)
+    cp.NonLinear = camb.model.NonLinear_both
+    return cp
 
-    pars = camb.set_params(**cosmo_params, **camb_params, **kwargs)
-    return camb.get_results(pars)
+def run_solver(params):
+    return camb.get_results(params)
 
 class CAMBInterface:
-    def __init__(self) -> None:
-        self.res = run_solver()
+    def __init__(self, zmin, zmax, **kwargs) -> None:
+        self.params = camb_params(zmin, zmax, **kwargs)
+        self.res = None
 
-    def matter_power_spectrum_interpolator(self):
+    def run_solver(self):
+        self.res = run_solver(self.params)
+
+    def matter_power_spectrum_interpolator(self, **kwargs):
         """
         Get matter power spectrum interpolator from CAMB
         assuming a Planck 18 cosmology.
         """
 
-        return self.res.get_matter_power_interpolator(k_hunit=False)
+        return self.res.get_matter_power_interpolator(k_hunit=False, **kwargs)
 
     def linear_growth_rate(self):
         planck18_sigma8 = 0.8111
