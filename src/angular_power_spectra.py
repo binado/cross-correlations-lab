@@ -1,7 +1,12 @@
 import numpy as np
 from astropy.cosmology import Planck18
 
-from . import equations, utils
+from . import equations
+from .camb_interface import CAMBInterface
+from .utils import mesh
+from .logger import LoggerConfig
+
+logger = LoggerConfig(__name__, level='DEBUG').get()
 
 class RedshiftBin:
     def __init__(self, zmin, zmax) -> None:
@@ -16,19 +21,36 @@ class RedshiftBin:
         self.wt = None
         self.wg = None
 
-    def set_functions(self, z, cosmology, ngw, ng, dc2_over_hz, sigma_lnd, **kwargs):
-        self.si = equations.sfunc(z, self.zmin, self.zmax, cosmology, sigma_lnd)
-        self.ti = equations.tfunc(z, self.zmin, self.zmax, cosmology, sigma_lnd)
-        self.ws = equations.ws(z, ngw, self.si, dc2_over_hz, **kwargs)
-        self.wt = equations.wt(z, ngw, self.ti, dc2_over_hz, **kwargs)
-        self.wg = equations.wg(z, ng, dc2_over_hz, self.zmin, self.zmax, **kwargs)
-        self.computed = True
+        self.si_mesh = None
+        self.ti_mesh = None
+        self.ws_mesh = None
+        self.wt_mesh = None
+        self.wg_mesh = None
+
+    @property
+    def zmid(self):
+        return 0.5 * (self.zmin + self.zmax)
+
+    def set_functions(self, z, cambi, ngw, ng, dc2_over_hz, sigma_lnd, **kwargs):
+        self.si = equations.sfunc(z, self.zmin, self.zmax, cambi, sigma_lnd)
+        self.ti = equations.tfunc(z, self.zmin, self.zmax, cambi, sigma_lnd)
+        self.ws = equations.ws(ngw, self.si, dc2_over_hz, **kwargs)
+        self.wt = equations.wt(ngw, self.ti, dc2_over_hz, **kwargs)
+        self.wg = equations.wg(ng, dc2_over_hz, self.zmin, self.zmax, **kwargs)
+
+        self.si_mesh = mesh(self.si)
+        self.ti_mesh = mesh(self.ti)
+        self.ws_mesh = mesh(self.ws)
+        self.wt_mesh = mesh(self.wt)
+        self.wg_mesh = mesh(self.wg)
 
 class CrossPowerSpectra:
+    labels = ['css', 'cst', 'cgg', 'csg', 'ctg']
+
     def __init__(self,
                  z,
                  bins: list[RedshiftBin],
-                 pm, # Matter power spectrum interpolator
+                 cambi: CAMBInterface,
                  ngw=3e-6,
                  ng=1e-3,
                  sigma_lnd=0.05,
@@ -40,81 +62,62 @@ class CrossPowerSpectra:
         self.ngw = ngw
         self.ng = ng
         self.sigma_lnd = sigma_lnd
-        self.pm = pm
+        self.cambi = cambi
+        self.pm = self.cambi.matter_power_spectrum_interpolator()
 
         # Pre-compute quantities for faster evaluation
-        self.dc2_over_hz = utils.dc2_over_hz(z, cosmology)
-        for zbin in self.bins:
-            zbin.set_functions(z, cosmology, ngw, ng, self.dc2_over_hz, sigma_lnd, **kwargs)
+        logger.debug('Pre-computing quantities')
+        self.zz, self.zzprime = np.meshgrid(z, z)
+        self.domain = self.zzprime < self.zz
+        self.dc2_over_hz = self.cambi.chi2_over_hz(self.z)
+        self.dc2_over_hz_mesh = mesh(self.dc2_over_hz)
+        self.wkappa = equations.wkappa(self.zzprime, self.zz, self.cosmology)
 
+        logger.debug('Setting kernels for each redshift bin')
+        for zbin in self.bins:
+            zbin.set_functions(z, cambi, ngw, ng, self.dc2_over_hz, sigma_lnd, **kwargs)
 
     def k(self, l, z):
         """
         Get first argument of Pm(k, z) using Limber's approximation
         """
-        return (l + 0.5) / self.chi(z)
-
-    def chi(self, z):
-        return self.cosmology.comoving_distance(z).value
+        return (l + 0.5) / self.cambi.chi(z)
     
-    def wkappa(self, z, zprime):
-        return equations.wkappa(z, zprime, self.cosmology)
+    def compute(self, l, bini, binj, bg, bgw):
+        # Matter power spectra using Limber's approximation
+        k1dim = self.k(l, self.z)
+        pm1dim = self.pm(self.z, k1dim, grid=False)
+        pm2dim = mesh(pm1dim)
 
-    def csisj(self, l, bini, binj, z, bias):
+        # ss
+        logger.debug('Computing css')
         arr = bini.ws * binj.ws / self.dc2_over_hz
-        k = self.k(l, z)
-        arr *= bias ** 2 * self.pm(k, z)
-        return np.trapz(arr, z)
-    
-    def csitj(self, l, bini, binj, z, bgw):
-        zz, zzprime = np.meshgrid(z, z)
-        arr = self.ws(binj, zz) * self.wt(bini, zzprime) * self.wkappa(zzprime, zz)
-        k = self.k(l, zzprime)
-        arr *= bgw * self.pm(k, zzprime) / self.dc2_over_hz(zz, self.cosmology)
-        return np.trapz(np.trapz(arr, z, axis=-1), z)
-    
-    def _ctitj_int(self, l, z, zz, zzprime):
-        integrand = self.wkappa(z, zz) * self.wkappa(z, zzprime)
-        k = self.k(l, z)
-        integrand *= self.pm(k, z) / self.dc2_over_hz
-        return np.trapz(integrand, z)
-    
-    def ctitj(self, l, bini, binj, z):
-        zz, zzprime = np.meshgrid(z, z)
-        arr = self.wt(bini, zz) * self.wt(binj, zzprime) * self._ctitj_int(l, z, zz, zzprime)
-        return np.trapz(np.trapz(arr, z, axis=-1), z)
-    
-    def cwiwj(self, l, bini, binj, z, bgw):
-        csisj = self.csisj(l, bini, binj, z, bgw)
-        csitj = self.csitj(l, bini, binj, z, bgw)
-        csjti = self.csitj(l, binj, bini, z, bgw)
-        ctitj = self.ctitj(l, bini, binj, z)
-        cwiwj = csisj + csitj + csjti + ctitj
-        return csisj, csitj, csjti, ctitj, cwiwj
-    
-    def cgigj(self, l, bini, binj, z, bg):
+        arr *= pm1dim * bgw ** 2
+        css = np.trapz(arr, self.z)
+
+        # st
+        logger.debug('Computing cst')
+        arr = binj.ws_mesh * bini.wt_mesh * self.wkappa / self.dc2_over_hz_mesh
+        arr *= pm2dim * bgw
+        cst = np.trapz(np.trapz(arr * self.domain, self.z, axis=0), self.z)
+
+        # gg
+        logger.debug('Computing cgg')
         arr = bini.wg * binj.wg / self.dc2_over_hz
-        k = self.k(l, z)
-        arr *= self.pm(k, z) * bg ** 2
-        return np.trapz(arr, z)
+        arr *= pm1dim * bg ** 2
+        cgg = np.trapz(arr, self.z)
 
-    def csigj(self, l, bini, binj, z, bgw, bg):
+        # sg
+        logger.debug('Computing csg')
         arr = bini.ws * binj.wg / self.dc2_over_hz
-        k = self.k(l, z)
-        arr *= self.pm(k, z) * bgw * bg 
-        return np.trapz(arr, z)
-    
-    def ctigj(self, l, bini, binj, z, bg):
-        zz, zzprime = np.meshgrid(z, z)
-        arr = self.wg(binj, zz) * self.wt(bini, zzprime) * self.wkappa(zzprime, zz)
-        k = self.k(l, zzprime)
-        arr *= bg * self.pm(k, zzprime) / self.dc2_over_hz
-        return np.trapz(np.trapz(arr, z, axis=-1), z)
-    
-    def cwigj(self, l, bini, binj, z, bgw, bg):
-        csigj = self.csigj(l, bini, binj, z, bgw, bg)
-        ctigj = self.ctigj(l, bini, binj, z, bg)
-        cwigj = csigj + ctigj
-        return csigj, ctigj, cwigj
+        arr *= pm1dim * bg * bgw
+        csg = np.trapz(arr, self.z)
+        
+        # tg
+        logger.debug('Computing ctg')
+        arr = binj.wg_mesh * bini.wt_mesh * self.wkappa / self.dc2_over_hz_mesh
+        arr *= pm2dim * bg
+        ctg = np.trapz(np.trapz(arr * self.domain, self.z, axis=0), self.z)
 
-
+        cls = np.array([css, cst, cgg, csg, ctg])
+        return self.labels, cls
