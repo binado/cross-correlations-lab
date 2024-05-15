@@ -29,16 +29,22 @@ class Cosmology:
 
     def hz(self, z: np.ndarray):
         return self.cosmo.hubble_parameter(z)
-    
+
+    def efunc(self, z: np.ndarray):
+        return self.hz(z) / self.H0
+
+    def Om(self, z: np.ndarray):
+        return self.Om0 * (1. + z) ** 3 / self.efunc(z)
+
     def chi(self, z: np.ndarray):
         return self.cosmo.comoving_radial_distance(z)
-    
+
     def chi2_over_hz(self, z: np.ndarray):
         return self.chi(z) ** 2 / self.hz(z)
-    
+
     def chi2hz(self, z: np.ndarray):
         return self.chi(z) ** 2 * self.hz(z)
-    
+
     def dl(self, z):
         return self.cosmo.luminosity_distance(z)
     
