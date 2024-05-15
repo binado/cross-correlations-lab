@@ -10,7 +10,7 @@ class Bias(ABC):
         pass
 
 class ConstantBias(Bias):
-    def __init__(self, val=1) -> None:
+    def __init__(self, val=1):
         super().__init__()
         self._val = val
 
