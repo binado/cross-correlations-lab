@@ -58,4 +58,4 @@ def linear_growth_rate(z, cosmology):
 
     where $\gamma \simeq 0.55$.
     """
-    return cosmology.Om(z) ** 0.55
+    return (cosmology.Om0 * (1. + z) ** 3) ** 0.55
