@@ -3,11 +3,10 @@ from abc import ABC, abstractmethod
 import numpy as np
 from scipy.special import erfc
 
-from .cosmology import Cosmology
 from .utils import lognormal_arg, c
 
 class NumberDensity(ABC):
-    def __init__(self, number_density, h_unit=False) -> None:
+    def __init__(self, number_density, h_unit=False):
         super().__init__()
         self._val = number_density
         self.h_unit = h_unit
@@ -22,7 +21,7 @@ class UniformInRedshiftNumberDensity(NumberDensity):
 
     
 class UniformInVolumeNumberDensity(NumberDensity):
-    def __init__(self, number_density, cosmology: Cosmology, **kwargs) -> None:
+    def __init__(self, number_density, cosmology, **kwargs):
         super().__init__(number_density, **kwargs)
         self.cosmo = cosmology
 
@@ -55,7 +54,7 @@ class BoxWindowFunction(WindowFunction):
         return np.ones_like(z) * cut
 
 class GWClusteringWindowFunction(WindowFunction):
-    def __init__(self, cosmology, sigma) -> None:
+    def __init__(self, cosmology, sigma):
         self.cosmology = cosmology
         self.sigma = sigma
 
@@ -68,7 +67,7 @@ class GWClusteringWindowFunction(WindowFunction):
         return 0.5 * (erfc(xlow) - erfc(xhigh))
     
 class GWLensingWindowFunction(WindowFunction):
-    def __init__(self, cosmology, sigma) -> None:
+    def __init__(self, cosmology, sigma):
         self.cosmology = cosmology
         self.sigma = sigma
 

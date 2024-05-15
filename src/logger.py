@@ -14,7 +14,7 @@ logname2level = {
 }
 
 class LoggerConfig:
-    def __init__(self, name: str, level: str = 'INFO', verbose: bool = False) -> None:
+    def __init__(self, name, level='INFO', verbose=False):
         self.name = name
         self.level = logname2level.get(level)
         self.verbose = verbose

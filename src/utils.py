@@ -4,7 +4,7 @@ from astropy import constants as const
 G = const.G.value
 c = const.c.value
 
-def mesh(x: np.ndarray, **kwargs):
+def mesh(x, **kwargs):
     xx, _ = np.meshgrid(x, x, **kwargs)
     return xx
 
