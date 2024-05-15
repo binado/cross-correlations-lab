@@ -18,7 +18,7 @@ class Kernel(ABC):
 class ClusteringKernel(Kernel):
     @classmethod
     def at_z(cls, z, n, cosmology, bias=1):
-        return bias * n *  cosmology.hz(z) / c
+        return bias * n * cosmology.hz(z) / c
 
 
 class WeakLensingKernel(Kernel):
