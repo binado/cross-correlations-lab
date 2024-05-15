@@ -36,23 +36,4 @@ class CAMBInterface:
 
     def run_solver(self):
         self.res = run_solver(self.params)
-
-    def hz(self, z: np.ndarray):
-        return self.res.hubble_parameter(z)
-    
-    def chi(self, z: np.ndarray):
-        return self.res.comoving_radial_distance(z)
-    
-    def chi2_over_hz(self, z: np.ndarray):
-        return self.chi(z) / self.hz(z)
-    
-    def dl(self, z):
-        return self.res.luminosity_distance(z)
-
-    def matter_power_spectrum_interpolator(self, **kwargs):
-        """
-        Get matter power spectrum interpolator from CAMB
-        assuming a Planck 18 cosmology.
-        """
-
-        return self.res.get_matter_power_interpolator(k_hunit=False, **kwargs)
+        return self.res
