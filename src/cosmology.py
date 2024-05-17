@@ -1,7 +1,16 @@
 from .utils import c
 
 class Cosmology:
+    """Cosmology class with wrapper methods to the CAMB api.
+    """
     def __init__(self, camb_interface):
+        """Create a new `Cosmology` class instance.
+
+        Parameters
+        ----------
+        camb_interface : camb_interface.CAMBInterface
+            CAMB Interface instance
+        """        
         self.cambi = camb_interface
         self.params = self.cambi.params
 
@@ -50,8 +59,6 @@ class Cosmology:
 
     def matter_power_spectrum_interpolator(self, **kwargs):
         """
-        Get matter power spectrum interpolator from CAMB
-        assuming a Planck 18 cosmology.
+        Get matter power spectrum interpolator from CAMB.
         """
-
         return self.cosmo.get_matter_power_interpolator(k_hunit=False, **kwargs)
