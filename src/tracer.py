@@ -6,7 +6,7 @@ from .utils import normalize, linear_growth_rate
 
 class Bias(ABC):
     @abstractmethod
-    def at(self, z):
+    def at_z(self, z):
         pass
 
 class ConstantBias(Bias):
@@ -14,11 +14,11 @@ class ConstantBias(Bias):
         super().__init__()
         self._val = val
 
-    def at(self, z):
+    def at_z(self, z):
         return self._val
 
 class SqrtZBias(Bias):
-    def at(self, z):
+    def at_z(self, z):
         return np.sqrt(1 + z)
     
 class GrowthRateBias(Bias):
@@ -26,7 +26,7 @@ class GrowthRateBias(Bias):
         self.b1, self.b2 = b1, b2
         self.cosmology = cosmology
 
-    def at(self, z):
+    def at_z(self, z):
         return self.b1 + self.b2 / linear_growth_rate(z, self.cosmology)
 
 class Tracer:
@@ -52,7 +52,7 @@ class Tracer:
     def compute_kernel_functions(self, zbin, z, cosmology):
         nz = z.size
         res = np.empty((self.nkernels, nz))
-        bias = self.bias.at(zbin.center)
+        bias = self.bias.at_z(zbin.center)
         for i, kernel in enumerate(self.kernels):
             n = self.normalized_density(zbin, z, kernel.name)
             res[i, :] = kernel.at_z(z, n, cosmology, bias)
