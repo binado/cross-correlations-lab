@@ -28,7 +28,7 @@ class WeakLensingKernel(Kernel):
         dh = cosmology.hubble_distance
         chi = cosmology.chi(z)
 
-        res = 1.5 * bias * cosmology.Om0 * (1. + z) * chi / dh ** 2
+        res = 1.5 * cosmology.Om0 * (1. + z) * chi / dh ** 2
         n_mesh = mesh(n, indexing='ij')
         chi_mesh = mesh(chi, indexing='ij')
 
