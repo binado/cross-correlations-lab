@@ -1,8 +1,7 @@
 import numpy as np
 from astropy import constants as const
 
-G = const.G.value
-c = const.c.value
+c = const.c.to('km/s').value
 
 def mesh(x, **kwargs):
     xx, _ = np.meshgrid(x, x, **kwargs)
